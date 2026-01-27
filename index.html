@@ -2,130 +2,295 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Trade Journal GitHub Issues DB</title>
+<title>Trade Journal Pro 2026 — GitHub DB</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-body { font-family: Arial; background:#111; color:#fff; margin:0; padding:20px; }
-.calendar { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin:20px 0;}
-.day { padding:15px; border-radius:6px; cursor:pointer; text-align:center; }
-.green { background:#1f7a1f; }
-.red { background:#7a1f1f; }
-.neutral { background:#333; }
-.modal { position:fixed; inset:0; background:#000a; display:none; justify-content:center; align-items:center; }
-.box { background:#1a1a1a; padding:20px; border-radius:8px; width:300px; }
-input,select,button { width:100%; padding:8px; margin-top:6px; background:#222; color:#fff; border:none; }
-button{ cursor:pointer; margin-top:6px; }
+/* Same Pro 2026 styles as before */
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#000;color:#e5e5e5;}
+header{background:#050505;padding:15px;text-align:center;border-bottom:1px solid #222;}
+.tabs{display:flex;background:#0f0f0f;}
+.tabs button{flex:1;padding:10px;background:#0f0f0f;color:#aaa;border:none;cursor:pointer;}
+.tabs button.active{background:#1a1a1a;color:#0f0;font-weight:bold;}
+.month{display:none;padding:20px;}
+.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;max-width:900px;margin:auto;}
+.weekday{font-weight:bold;color:#777;padding:6px;background:#050505;text-align:center;}
+.day{background:#0b0b0b;border:1px solid #222;min-height:80px;padding:8px;white-space:pre-line;cursor:pointer;}
+.day.profit{background:linear-gradient(135deg,#003300,#001500);border-color:#0f0;}
+.day.loss{background:linear-gradient(135deg,#330000,#150000);border-color:#900;}
+.day.empty{background:transparent;border:none;cursor:default;}
+.graph-box{max-width:900px;margin:25px auto;background:#0b0b0b;padding:15px;border:1px solid #222;}
+.popup,.overlay{display:none;position:fixed;}
+.overlay{top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.8);z-index:5;}
+.popup{top:10%;left:50%;transform:translateX(-50%);background:#0b0b0b;border:1px solid #333;padding:20px;width:380px;z-index:10;}
+table{width:100%;border-collapse:collapse;}
+td{border:1px solid #333;padding:5px;text-align:center;}
+input,select{width:100%;background:#000;color:#0f0;border:1px solid #333;}
+button{margin:6px;padding:6px 12px;background:#111;color:#0f0;border:1px solid #333;cursor:pointer;}
+button:hover{background:#1a1a1a;}
 </style>
 </head>
+
 <body>
 
-<h2>📅 Trade Journal (GitHub Issues DB)</h2>
+<header>
+<h1>📊 TRADE JOURNAL PRO — 2026 (GitHub)</h1>
+</header>
 
-<div class="calendar" id="calendar"></div>
+<div class="tabs" id="tabs"></div>
+<div id="months"></div>
 
-<!-- MODAL -->
-<div class="modal" id="modal">
-  <div class="box">
-    <h3 id="modalDate"></h3>
-    <select id="type">
-      <option>Long</option>
-      <option>Short</option>
-    </select>
-    <input id="lot" type="number" step="0.01" placeholder="Lot Size">
-    <input id="pnl" type="number" placeholder="Profit / Loss">
-    <button onclick="saveTrade()">Save</button>
-    <button onclick="closeModal()">Close</button>
-  </div>
+<div class="graph-box"><canvas id="dailyChart"></canvas></div>
+<div class="graph-box"><canvas id="monthlyChart"></canvas></div>
+
+<div class="graph-box">
+<h3>📊 Trading Stats</h3>
+<p>Win Rate: <span id="winRate">0%</span></p>
+<p>Current Streak: <span id="currentStreak">-</span></p>
+<p>Max Win Streak: <span id="maxWin">0</span></p>
+<p>Max Loss Streak: <span id="maxLoss">0</span></p>
+<button onclick="exportCSV()">📤 Export CSV</button>
+</div>
+
+<div class="overlay" id="overlay"></div>
+<div class="popup" id="popup">
+<h3 id="popupDate"></h3>
+<table id="entries">
+<tr><td>ENTRY</td><td>TP</td><td>SL</td><td>P/L</td><td>Type</td><td>Lot</td><td></td></tr>
+</table>
+<button onclick="addRow()">ADD</button>
+<button onclick="saveData()">SAVE</button>
+<button onclick="closePopup()">CLOSE</button>
 </div>
 
 <script>
-const calendar = document.getElementById("calendar");
-const modal = document.getElementById("modal");
-let selectedDate = "";
+const YEAR=2026;
+const monthNames=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const daysInMonth=[31,28,31,30,31,30,31,31,30,31,30,31];
+const weekDays=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const tabs=document.getElementById("tabs");
+const monthsDiv=document.getElementById("months");
+const popup=document.getElementById("popup");
+const overlay=document.getElementById("overlay");
+const popupDate=document.getElementById("popupDate");
+const entriesTable=document.getElementById("entries");
 
-// CONFIG - fill in your username and repo
-const OWNER = "nadarrobin1-sys";   // your GitHub username
-const REPO = "tracking";           // your repo name
-let TOKEN = "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"; // <<< PUT YOUR TOKEN HERE LOCALLY (DO NOT PUSH ONLINE)
+let currentKey=null;
+let dailyChart,monthlyChart;
 
-// BUILD CALENDAR (current month)
-function buildCalendar() {
-    calendar.innerHTML="";
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const firstDay = new Date(year,month,1).getDay();
-    const days = new Date(year,month+1,0).getDate();
+/* ----- GITHUB CONFIG ----- */
+const OWNER="nadarrobin1-sys";   // GitHub username
+const REPO="tracking";            // GitHub repo
+let TOKEN="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"; // <<< fill your PAT locally, DO NOT PUSH
 
-    for(let i=0;i<firstDay;i++){ calendar.appendChild(document.createElement("div")); }
-
-    for(let d=1; d<=days; d++){
-        const div = document.createElement("div");
-        div.className="day neutral";
-        div.innerText=d;
-        const dateStr = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-        div.dataset.date = dateStr;
-        div.onclick = ()=>openModal(dateStr);
-        calendar.appendChild(div);
-    }
+async function getAllTrades(){
+  if(!TOKEN) return [];
+  const res=await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/issues?per_page=100`,{
+    headers:{"Authorization":"Bearer "+TOKEN}
+  });
+  const issues=await res.json();
+  const trades=[];
+  issues.forEach(issue=>{
+    try{ trades.push(JSON.parse(issue.body)); }catch(e){}
+  });
+  return trades;
 }
 
-buildCalendar();
-loadTrades();
-
-// MODAL FUNCTIONS
-function openModal(date){
-    selectedDate = date;
-    document.getElementById("modalDate").innerText = date;
-    modal.style.display="flex";
+async function saveTradeToGit(trade){
+  if(!TOKEN){ alert("Set token locally"); return; }
+  await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/issues`,{
+    method:"POST",
+    headers:{
+      "Authorization":"Bearer "+TOKEN,
+      "Accept":"application/vnd.github+json"
+    },
+    body:JSON.stringify({
+      title:`Trade ${trade.date}`,
+      body:JSON.stringify(trade)
+    })
+  });
 }
-function closeModal(){ modal.style.display="none"; }
 
-// SAVE TRADE TO GITHUB ISSUE
-async function saveTrade(){
-    if(!TOKEN){ alert("Set your GitHub token in code before saving!"); return; }
-    const trade = {
-        date: selectedDate,
-        type: document.getElementById("type").value,
-        lot: Number(document.getElementById("lot").value),
-        pnl: Number(document.getElementById("pnl").value)
+/* -------- BUILD CALENDAR -------- */
+monthNames.forEach((m,i)=>{
+  let b=document.createElement("button");
+  b.textContent=m;
+  b.onclick=()=>showMonth(i);
+  tabs.appendChild(b);
+
+  let div=document.createElement("div");
+  div.className="month";
+  div.id="month"+i;
+
+  let cal=document.createElement("div");
+  cal.className="calendar";
+
+  weekDays.forEach(w=>{
+    let wd=document.createElement("div");
+    wd.className="weekday";
+    wd.textContent=w;
+    cal.appendChild(wd);
+  });
+
+  const firstDay=new Date(YEAR,i,1).getDay();
+  for(let e=0;e<firstDay;e++){
+    let empty=document.createElement("div");
+    empty.className="day empty";
+    cal.appendChild(empty);
+  }
+
+  for(let d=1;d<=daysInMonth[i];d++){
+    let key=`${m}${d}`;
+    let day=document.createElement("div");
+    day.className="day";
+    day.textContent=`${m} ${d}`;
+    day.onclick=()=>openPopup(key);
+    cal.appendChild(day);
+  }
+
+  div.appendChild(cal);
+  monthsDiv.appendChild(div);
+});
+
+/* -------- POPUP -------- */
+function openPopup(key){
+  currentKey=key;
+  popupDate.textContent=key;
+  entriesTable.innerHTML='<tr><td>ENTRY</td><td>TP</td><td>SL</td><td>P/L</td><td>Type</td><td>Lot</td><td></td></tr>';
+  loadGitTrades(key).then(data=>{
+    data.forEach(e=>addRow(e.entry,e.tp,e.sl,e.profit,e.type,e.lot));
+  });
+  popup.style.display=overlay.style.display="block";
+}
+function closePopup(){ popup.style.display=overlay.style.display="none"; }
+function addRow(e="",tp="",sl="",p="",type="Long",lot="0.01"){
+  let r=document.createElement("tr");
+  r.innerHTML=`
+  <td><input value="${e}"></td>
+  <td><input value="${tp}"></td>
+  <td><input value="${sl}"></td>
+  <td><input type="number" value="${p}"></td>
+  <td><select><option ${type=="Long"?"selected":""}>Long</option><option ${type=="Short"?"selected":""}>Short</option></select></td>
+  <td><input type="number" step="0.01" value="${lot}"></td>
+  <td><button onclick="this.closest('tr').remove()">✖</button></td>`;
+  entriesTable.appendChild(r);
+}
+async function saveData(){
+  let rows=[...entriesTable.querySelectorAll("tr")].slice(1);
+  let trades=rows.map(r=>{
+    let i=r.querySelectorAll("input,select");
+    return{
+      date:currentKey,
+      entry:i[0].value,tp:i[1].value,sl:i[2].value,
+      profit:i[3].value,type:i[4].value,lot:i[5].value
     };
-
-    await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/issues`,{
-        method:"POST",
-        headers:{
-            "Accept":"application/vnd.github+json",
-            "Authorization":`Bearer ${TOKEN}`
-        },
-        body: JSON.stringify({
-            title: `Trade ${selectedDate}`,
-            body: JSON.stringify(trade)
-        })
-    });
-    closeModal();
-    loadTrades();
+  }).filter(x=>x.entry||x.profit);
+  for(let t of trades) await saveTradeToGit(t);
+  closePopup();
+  loadAllData();
 }
 
-// LOAD TRADES FROM ISSUES
-async function loadTrades(){
-    const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/issues`);
-    const issues = await res.json();
-
-    // Sum PnL per day
-    const map = {};
-    issues.forEach(issue=>{
-        try{
-            const t = JSON.parse(issue.body);
-            if(!map[t.date]) map[t.date]=0;
-            map[t.date]+=t.pnl;
-        }catch(e){}
-    });
-
-    document.querySelectorAll(".day").forEach(d=>{
-        const sum = map[d.dataset.date] || 0;
-        d.className="day " + (sum>0?"green":sum<0?"red":"neutral");
-    });
+/* -------- LOAD GITHUB DATA -------- */
+async function loadGitTrades(key){
+  const all=await getAllTrades();
+  return all.filter(t=>t.date===key);
 }
+async function loadAllData(){
+  const all=await getAllTrades();
+  // Update calendar colors
+  monthNames.forEach((m,i)=>{
+    for(let d=1;d<=daysInMonth[i];d++){
+      let key=`${m}${d}`;
+      let day=document.querySelector(`#month${i} .day:nth-child(${7+daysInMonth[i]+d})`);
+      if(!day) continue;
+      let dayTrades=all.filter(t=>t.date===key);
+      let total=dayTrades.reduce((s,e)=>s+(+e.profit||0),0);
+      day.className="day "+(total>=0?"profit":"loss");
+      day.textContent=`${m} ${d}\n${dayTrades.length} trades\n${total>=0?"+":""}${total}`;
+    }
+  });
+  buildCharts(0);
+  calculateStats(all);
+}
+
+/* -------- CHARTS & STATS (same as local version) -------- */
+const dailyChartCtx=document.getElementById("dailyChart");
+const monthlyChartCtx=document.getElementById("monthlyChart");
+
+async function buildCharts(month){
+  const all=await getAllTrades();
+  let daily=[],labels=[],colors=[];
+  for(let d=1;d<=daysInMonth[month];d++){
+    let key=`${monthNames[month]}${d}`;
+    let t=all.filter(tr=>tr.date===key).reduce((s,e)=>s+(+e.profit||0),0);
+    daily.push(t); labels.push(d);
+    colors.push(t>=0?"#00ff55":"#ff3333");
+  }
+  if(dailyChart)dailyChart.destroy();
+  dailyChart=new Chart(dailyChartCtx,{
+    type:"bar",
+    data:{labels,datasets:[{data:daily,backgroundColor:colors}]},
+    options:{plugins:{legend:{display:false}}}
+  });
+
+  let monthly=[];
+  monthNames.forEach((m,i)=>{
+    let t=all.filter(tr=>tr.date.startsWith(m)).reduce((s,e)=>s+(+e.profit||0),0);
+    monthly.push(t);
+  });
+  const lineColor=monthly.reduce((a,b)=>a+b,0)>=0?"#00ff55":"#ff3333";
+  if(monthlyChart)monthlyChart.destroy();
+  monthlyChart=new Chart(monthlyChartCtx,{
+    type:"line",
+    data:{labels:monthNames,datasets:[{
+      data:monthly,
+      borderColor:lineColor,
+      tension:.3,
+      pointBackgroundColor:monthly.map(v=>v>=0?"#00ff55":"#ff3333")
+    }]},
+    options:{plugins:{legend:{display:false}}}
+  });
+}
+
+function calculateStats(all){
+  let trades=all.map(t=>+t.profit||0);
+  if(!trades.length) return;
+  let wins=trades.filter(p=>p>0).length;
+  document.getElementById("winRate").textContent=((wins/trades.length)*100).toFixed(1)+"%";
+  let maxW=0,maxL=0,curW=0,curL=0;
+  trades.forEach(p=>{
+    if(p>0){curW++;curL=0;} else if(p<0){curL++;curW=0;}
+    maxW=Math.max(maxW,curW);
+    maxL=Math.max(maxL,curL);
+  });
+  document.getElementById("currentStreak").textContent=curW?`🔥 W${curW}`:curL?`❌ L${curL}`:"-";
+  document.getElementById("maxWin").textContent=maxW;
+  document.getElementById("maxLoss").textContent=maxL;
+}
+
+/* -------- CSV -------- */
+async function exportCSV(){
+  const all=await getAllTrades();
+  let csv="Date,Entry,TP,SL,P/L,Type,Lot\n";
+  all.forEach(t=>{
+    csv+=`${t.date},${t.entry},${t.tp},${t.sl},${t.profit},${t.type},${t.lot}\n`;
+  });
+  let blob=new Blob([csv],{type:"text/csv"});
+  let a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="trade_journal_2026.csv";
+  a.click();
+}
+
+/* -------- INIT -------- */
+function showMonth(i){
+  document.querySelectorAll(".month").forEach(m=>m.style.display="none");
+  document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active"));
+  document.getElementById("month"+i).style.display="block";
+  tabs.children[i].classList.add("active");
+  buildCharts(i);
+}
+showMonth(0);
+loadAllData();
 </script>
 </body>
-</html>
-
+  </html>
