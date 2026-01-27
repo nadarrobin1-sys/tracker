@@ -111,9 +111,13 @@ button{
   cursor:pointer;
 }
 button:hover{background:#1a1a1a;}
+#csvFile{
+  display:inline-block;
+  margin:6px;
+  color:#0f0;
+}
 </style>
 </head>
-
 <body>
 
 <header>
@@ -133,6 +137,8 @@ button:hover{background:#1a1a1a;}
 <p>Max Win Streak: <span id="maxWin">0</span></p>
 <p>Max Loss Streak: <span id="maxLoss">0</span></p>
 <button onclick="exportCSV()">📤 Export CSV</button>
+<input type="file" id="csvFile" accept=".csv">
+<button onclick="importCSV()">📥 Import CSV</button>
 </div>
 
 <div class="overlay" id="overlay"></div>
@@ -160,6 +166,7 @@ const popupDate=document.getElementById("popupDate");
 const entriesTable=document.getElementById("entries");
 
 let currentKey=null;
+let lastTrade=null;
 let dailyChart,monthlyChart;
 
 /* -------- BUILD CALENDAR -------- */
@@ -194,7 +201,7 @@ monthNames.forEach((m,i)=>{
     let key=`${m}${d}`;
     let day=document.createElement("div");
     day.className="day";
-    day.textContent=`${m} ${d}`;
+    day.textContent=d;
     day.onclick=()=>openPopup(key);
 
     let saved=JSON.parse(localStorage.getItem(key));
@@ -216,22 +223,30 @@ function openPopup(key){
   popupDate.textContent=key;
   entriesTable.innerHTML='<tr><td>ENTRY</td><td>TP</td><td>SL</td><td>P/L</td><td>Type</td><td>Lot</td><td></td></tr>';
   let s=JSON.parse(localStorage.getItem(key))||[];
-  s.forEach(e=>addRow(e.entry,e.tp,e.sl,e.profit,e.type,e.lot));
+  s.forEach(e=>{
+    addRow(e.entry,e.tp,e.sl,e.profit,e.type,e.lot);
+    lastTrade=e;
+  });
   popup.style.display=overlay.style.display="block";
 }
 function closePopup(){ popup.style.display=overlay.style.display="none"; }
+
 function addRow(e="",tp="",sl="",p="",type="Long",lot="0.01"){
+  if(!e && lastTrade){ // autofill
+    e=lastTrade.entry; tp=lastTrade.tp; sl=lastTrade.sl; p=lastTrade.profit; type=lastTrade.type; lot=lastTrade.lot;
+  }
   let r=document.createElement("tr");
   r.innerHTML=`
-  <td><input value="${e}"></td>
-  <td><input value="${tp}"></td>
-  <td><input value="${sl}"></td>
-  <td><input type="number" value="${p}"></td>
-  <td><select><option ${type=="Long"?"selected":""}>Long</option><option ${type=="Short"?"selected":""}>Short</option></select></td>
-  <td><input type="number" step="0.01" value="${lot}"></td>
-  <td><button onclick="this.closest('tr').remove()">✖</button></td>`;
+    <td><input value="${e}"></td>
+    <td><input value="${tp}"></td>
+    <td><input value="${sl}"></td>
+    <td><input type="number" value="${p}"></td>
+    <td><select><option ${type=="Long"?"selected":""}>Long</option><option ${type=="Short"?"selected":""}>Short</option></select></td>
+    <td><input type="number" step="0.01" value="${lot}"></td>
+    <td><button onclick="this.closest('tr').remove()">✖</button></td>`;
   entriesTable.appendChild(r);
 }
+
 function saveData(){
   let rows=[...entriesTable.querySelectorAll("tr")].slice(1);
   let data=rows.map(r=>{
@@ -342,6 +357,24 @@ function exportCSV(){
   a.click();
 }
 
+function importCSV(){
+  const file=document.getElementById("csvFile").files[0];
+  if(!file)return alert("Select a CSV file!");
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const lines=e.target.result.split("\n");
+    for(let i=1;i<lines.length;i++){
+      if(!lines[i].trim())continue;
+      const [date,entry,tp,sl,profit,type,lot]=lines[i].split(",");
+      let existing=JSON.parse(localStorage.getItem(date))||[];
+      existing.push({entry,tp,sl,profit,type,lot});
+      localStorage.setItem(date,JSON.stringify(existing));
+    }
+    location.reload();
+  };
+  reader.readAsText(file);
+}
+
 /* -------- INIT -------- */
 function showMonth(i){
   document.querySelectorAll(".month").forEach(m=>m.style.display="none");
@@ -354,27 +387,8 @@ function showMonth(i){
 showMonth(0);
 calculateStats();
 </script>
-
 </body>
-</html>const entriesTable=document.getElementById("entries");
-
-let currentKey=null;
-let dailyChart,monthlyChart;
-
-/* ----- GITHUB CONFIG ----- */
-const OWNER="nadarrobin1-sys";   // GitHub username
-const REPO="tracking";            // GitHub repo
-let TOKEN="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"; // <<< fill your PAT locally, DO NOT PUSH
-
-async function getAllTrades(){
-  if(!TOKEN) return [];
-  const res=await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/issues?per_page=100`,{
-    headers:{"Authorization":"Bearer "+TOKEN}
-  });
-  const issues=await res.json();
-  const trades=[];
-  issues.forEach(issue=>{
-    try{ trades.push(JSON.parse(issue.body)); }catch(e){}
+</html> trades.push(JSON.parse(issue.body)); }catch(e){}
   });
   return trades;
 }
@@ -578,4 +592,5 @@ loadAllData();
 </script>
 </body>
   </html>
+
 
