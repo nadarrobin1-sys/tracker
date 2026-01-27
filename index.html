@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Trade Journal Pro 2026</title>
+<title>Trade Journal Pro 20226</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 body{
@@ -388,6 +388,18 @@ showMonth(0);
 calculateStats();
 </script>
 </body>
+               </html>tion showMonth(i){
+  document.querySelectorAll(".month").forEach(m=>m.style.display="none");
+  document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active"));
+  document.getElementById("month"+i).style.display="block";
+  tabs.children[i].classList.add("active");
+  buildCharts(i);
+}
+
+showMonth(0);
+calculateStats();
+</script>
+</body>
 </html> trades.push(JSON.parse(issue.body)); }catch(e){}
   });
   return trades;
@@ -592,5 +604,6 @@ loadAllData();
 </script>
 </body>
   </html>
+
 
 
