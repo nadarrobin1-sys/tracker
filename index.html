@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Trade Journal Pro</title>
+<title>TJ Custom by for AR</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
@@ -39,7 +39,7 @@ header{padding:15px;text-align:center;border-bottom:1px solid #222}
 .day.profit{background:#002200}
 .day.loss{background:#220000}
 
-.day-num{font-size:14px;font-weight:bold}
+.day-num{font-size:20px;font-weight:bold}
 .day-info{margin-top:6px}
 
 .graph-box{
@@ -93,7 +93,7 @@ button{
 
 <body>
 
-<header><h2>📊 Trade Journal Pro</h2></header>
+<header><h2>Trade Journal of AR</h2></header>
 
 <div class="tabs" id="tabs"></div>
 <div id="months"></div>
@@ -114,8 +114,8 @@ button{
 
 <div class="graph-box">
 <input type="file" id="csvFile" accept=".csv">
-<button onclick="importCSV()">📥 Import MT5 CSV</button>
-<button onclick="exportCSV()">📤 Export CSV</button>
+<button onclick="importCSV()">Import MT5 CSV</button>
+<button onclick="exportCSV()">Export CSV</button>
 </div>
 
 <div class="overlay" id="overlay"></div>
@@ -366,3 +366,4 @@ showMonth(0);
 
 </body>
 </html>
+
