@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>Trade Journal Pro</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+]
 <style>
 body{margin:0;font-family:Arial;background:#000;color:#e5e5e5}
 header{padding:15px;text-align:center;border-bottom:1px solid #222}
@@ -218,7 +218,37 @@ function calcMonth(){
   document.getElementById("mST").textContent=best;
 }
 
+function importCSV(){
+  const f=document.getElementById("csvFile").files[0];
+  if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    let lines=e.target.result.split("\n");
+    let h=lines[1].split(",");
+    let c=n=>h.indexOf(n);
 
+    for(let i=2;i<lines.length;i++){
+      let row=lines[i].split(",");
+      if(!row[c("Opening Time")])continue;
+      let d=new Date(row[c("Opening Time")]);
+      let key=`${monthNames[d.getMonth()]}${d.getDate()}`;
+
+      let trade={
+        entry:row[c("Opening Price")],
+        exit:row[c("Closing Price")],
+        profit:Number(row[c("P/L")]).toFixed(3),
+        type:row[c("Order Type")]=="Buy"?"Long":"Short",
+        lot:row[c("Lot")]
+      };
+
+      let s=JSON.parse(localStorage.getItem(key))||[];
+      s.push(trade);
+      localStorage.setItem(key,JSON.stringify(s));
+    }
+    location.reload();
+  };
+  r.readAsText(f);
+}
 /* ---------- CSV EXPORT ---------- */
 function exportCSV(){
   let csv="Date,Entry,Exit,P/L,Type,Lot\n";
@@ -248,5 +278,6 @@ showMonth(0);
 
 </body>
 </html>
+
 
 
