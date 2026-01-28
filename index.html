@@ -218,55 +218,7 @@ function calcMonth(){
   document.getElementById("mST").textContent=best;
 }
 
-/* ---------- CSV IMPORT (MT5 SAFE) ---------- */
-<script>
-function importCSV(){
-  const file = document.getElementById("csvFile").files[0];
-  if(!file) return alert("Select MT5 Closed Trades CSV");
 
-  const reader = new FileReader();
-  reader.onload = function(e){
-    const lines = e.target.result.split("\n");
-
-    // Skip first useless title row
-    const headers = lines[1].split(",");
-
-    const colIndex = name => headers.indexOf(name);
-
-    for(let i=2;i<lines.length;i++){
-      if(!lines[i].trim()) continue;
-
-      const row = lines[i].split(",");
-
-      const openTime = row[colIndex("Opening Time")];
-      if(!openTime) continue;
-
-      const dateObj = new Date(openTime);
-      const day = dateObj.getDate();
-      const month = monthNames[dateObj.getMonth()];
-      const key = `${month}${day}`;
-
-      const trade = {
-        entry: row[colIndex("Opening Price")] || "",
-        tp: row[colIndex("Closing Price")] || "",
-        sl: row[colIndex("Remarks")] || "",
-        profit: row[colIndex("P/L")] || 0,
-        type: row[colIndex("Order Type")] === "Buy" ? "Long" : "Short",
-        lot: row[colIndex("Lot")] || "0.01"
-      };
-
-      let existing = JSON.parse(localStorage.getItem(key)) || [];
-      existing.push(trade);
-      localStorage.setItem(key, JSON.stringify(existing));
-    }
-
-    alert("CSV Imported Successfully ✅");
-    location.reload();
-  };
-
-  reader.readAsText(file);
-}
-</script>
 /* ---------- CSV EXPORT ---------- */
 function exportCSV(){
   let csv="Date,Entry,Exit,P/L,Type,Lot\n";
@@ -296,4 +248,5 @@ showMonth(0);
 
 </body>
 </html>
+
 
