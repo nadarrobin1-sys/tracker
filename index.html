@@ -108,7 +108,7 @@ function updateCell(cell,key){
   info.innerHTML=
     `${trades.length} trades<br>
    <b style="font-size:20px;color:${total>=0?'#0f0':'#f33'}">
-   ${total >= 0 ? '+' : ''}${total.toFixed(3)}</b>
+     ${total>=0?'+':''}${total.toFixed(3)}</b>`;
   cell.classList.add(total>=0?"profit":"loss");
 }
 
@@ -282,6 +282,7 @@ showMonth(0);
 
 </body>
 </html>
+
 
 
 
