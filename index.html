@@ -219,42 +219,54 @@ function calcMonth(){
 }
 
 /* ---------- CSV IMPORT (MT5 SAFE) ---------- */
+<script>
 function importCSV(){
-  const f=document.getElementById("csvFile").files[0];
-  if(!f) return;
+  const file = document.getElementById("csvFile").files[0];
+  if(!file) return alert("Select MT5 Closed Trades CSV");
 
-  const r=new FileReader();
-  r.onload=e=>{
-    const lines=e.target.result.split(/\r?\n/);
-    const header=lines[0].split(",").map(h=>h.trim());
-    const idx=n=>header.indexOf(n);
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const lines = e.target.result.split("\n");
 
-    for(let i=1;i<lines.length;i++){
-      if(!lines[i]) continue;
-      const row=lines[i].split(",");
-      const closeTime=row[idx("Close Time")] || row[idx("Closing Time")];
-      if(!closeTime) continue;
+    // Skip first useless title row
+    const headers = lines[1].split(",");
 
-      const d=new Date(closeTime);
-      const key=months[d.getMonth()]+d.getDate();
+    const colIndex = name => headers.indexOf(name);
 
-      const trade={
-        entry:row[idx("Open Price")],
-        exit:row[idx("Close Price")],
-        profit:Number(row[idx("Profit")]||row[idx("P/L")]).toFixed(3),
-        type:(row[idx("Type")]||"").toLowerCase().includes("buy")?"Long":"Short",
-        lot:row[idx("Size")]||row[idx("Lots")]||"0.01"
+    for(let i=2;i<lines.length;i++){
+      if(!lines[i].trim()) continue;
+
+      const row = lines[i].split(",");
+
+      const openTime = row[colIndex("Opening Time")];
+      if(!openTime) continue;
+
+      const dateObj = new Date(openTime);
+      const day = dateObj.getDate();
+      const month = monthNames[dateObj.getMonth()];
+      const key = `${month}${day}`;
+
+      const trade = {
+        entry: row[colIndex("Opening Price")] || "",
+        tp: row[colIndex("Closing Price")] || "",
+        sl: row[colIndex("Remarks")] || "",
+        profit: row[colIndex("P/L")] || 0,
+        type: row[colIndex("Order Type")] === "Buy" ? "Long" : "Short",
+        lot: row[colIndex("Lot")] || "0.01"
       };
 
-      const s=JSON.parse(localStorage.getItem(key)||"[]");
-      s.push(trade);
-      localStorage.setItem(key,JSON.stringify(s));
+      let existing = JSON.parse(localStorage.getItem(key)) || [];
+      existing.push(trade);
+      localStorage.setItem(key, JSON.stringify(existing));
     }
+
+    alert("CSV Imported Successfully ✅");
     location.reload();
   };
-  r.readAsText(f);
-}
 
+  reader.readAsText(file);
+}
+</script>
 /* ---------- CSV EXPORT ---------- */
 function exportCSV(){
   let csv="Date,Entry,Exit,P/L,Type,Lot\n";
@@ -284,3 +296,4 @@ showMonth(0);
 
 </body>
 </html>
+
