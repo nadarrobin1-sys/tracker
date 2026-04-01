@@ -14,9 +14,9 @@ body {
     overflow: hidden;
 }
 
+/* Center content */
 .container {
     position: relative;
-    z-index: 2;
     text-align: center;
     margin-top: 80px;
 }
@@ -26,17 +26,17 @@ h1 {
     font-size: 1.8rem;
 }
 
-/* MESSAGE STYLE */
+/* Message */
 #message {
     color: black;
     font-size: 1.1rem;
     margin-top: 10px;
     min-height: 30px;
     font-weight: bold;
-    text-shadow: 0 0 8px rgba(0,0,0,0.5);
+    text-shadow: 0 0 8px rgba(0,0,0,0.4);
 }
 
-/* BUTTONS */
+/* Buttons layout */
 .buttons {
     margin-top: 40px;
     display: flex;
@@ -44,6 +44,7 @@ h1 {
     padding: 0 40px;
 }
 
+/* Common button */
 button {
     padding: 10px 18px;
     font-size: 1rem;
@@ -53,29 +54,28 @@ button {
     transition: 0.3s;
 }
 
-/* YES BUTTON */
+/* YES button */
 #yesBtn {
     background-color: #ff4b5c;
     color: white;
 }
 
-/* NO BUTTON */
+/* NO button */
 #noBtn {
     background-color: white;
     color: #ff4b5c;
 }
 
-/* runaway */
+/* When it starts moving */
 .runaway {
-    position: absolute;
-    z-index: 1;
+    position: fixed;
 }
 </style>
 </head>
 
 <body>
 
-<div class="container" id="container">
+<div class="container">
     <h1>Epo ok solla pore nu 💖</h1>
     <div id="message"></div>
 
@@ -85,14 +85,13 @@ button {
     </div>
 </div>
 
-<!-- SOUND -->
+<!-- Sound -->
 <audio id="ayyooSound" src="https://www.myinstants.com/media/sounds/ayyoo.mp3"></audio>
 
 <script>
 const noBtn = document.getElementById("noBtn");
-const message = document.getElementById("message");
-const container = document.getElementById("container");
 const yesBtn = document.getElementById("yesBtn");
+const message = document.getElementById("message");
 const sound = document.getElementById("ayyooSound");
 
 let clickCount = 0;
@@ -105,18 +104,25 @@ const messages = [
 ];
 
 function moveButton() {
-    const containerRect = container.getBoundingClientRect();
+    const yesRect = yesBtn.getBoundingClientRect();
 
     const btnWidth = noBtn.offsetWidth;
     const btnHeight = noBtn.offsetHeight;
 
-    const topLimit = containerRect.bottom;
+    // center of YES button
+    const centerX = yesRect.left + yesRect.width / 2;
+    const centerY = yesRect.top + yesRect.height / 2;
 
-    const maxX = window.innerWidth - btnWidth;
-    const maxY = window.innerHeight - btnHeight;
+    const radius = 120; // adjust distance
 
-    const x = Math.random() * maxX;
-    const y = topLimit + Math.random() * (maxY - topLimit);
+    const angle = Math.random() * 2 * Math.PI;
+
+    let x = centerX + radius * Math.cos(angle) - btnWidth / 2;
+    let y = centerY + radius * Math.sin(angle) - btnHeight / 2;
+
+    // keep inside screen
+    x = Math.max(0, Math.min(window.innerWidth - btnWidth, x));
+    y = Math.max(0, Math.min(window.innerHeight - btnHeight, y));
 
     noBtn.style.left = x + "px";
     noBtn.style.top = y + "px";
@@ -127,14 +133,13 @@ noBtn.addEventListener("click", () => {
     sound.currentTime = 0;
     sound.play();
 
-    // message
+    // show message
     message.innerText = messages[clickCount % messages.length];
-
     clickCount++;
 
-    // glow yes button stronger
-    let glow = clickCount * 5;
-    yesBtn.style.boxShadow = `0 0 ${glow}px rgba(255,0,80,0.8)`;
+    // glow YES button stronger
+    let glow = clickCount * 6;
+    yesBtn.style.boxShadow = `0 0 ${glow}px rgba(255,0,80,0.9)`;
 
     // activate movement
     noBtn.classList.add("runaway");
@@ -153,11 +158,11 @@ function accepted() {
         color:white;
         text-align:center;
     ">
-        <h1>🤣🤣 April Fool Da 😅<br>Yenna Yes press pannita pola 😁😁😏</h1>
+        <h1>🤣🤣 April Fool Da 😁<br> Yenna Yess press panita pola 😏😏</h1>
     </div>
     `;
 }
 </script>
 
 </body>
-  </html>
+</html>
